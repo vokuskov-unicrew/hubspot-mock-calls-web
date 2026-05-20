@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>HubSpot Mock Calls</title>
+  <style>
+    :root {
+      --bg: #0f1115;
+      --panel: #171a21;
+      --border: #262b36;
+      --text: #e6e8ec;
+      --muted: #8b93a7;
+      --accent: #ff7a59;
+      --accent-hover: #ff8f73;
+      --ok: #43c478;
+      --err: #ef5b5b;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    .wrap { max-width: 760px; margin: 32px auto; padding: 0 16px; }
+    h1 { font-size: 18px; margin: 0 0 4px; }
+    .sub { color: var(--muted); margin: 0 0 24px; font-size: 13px; }
+    .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 18px; margin-bottom: 16px; }
+    label { display: block; font-size: 12px; color: var(--muted); margin: 12px 0 6px; }
+    label:first-child { margin-top: 0; }
+    input, select, textarea {
+      width: 100%; background: #0c0e13; color: var(--text);
+      border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px;
+      font: inherit;
+    }
+    input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); }
+    .row { display: flex; gap: 12px; }
+    .row > div { flex: 1; }
+    button {
+      background: var(--accent); color: #fff; border: 0; border-radius: 6px;
+      padding: 10px 16px; font: inherit; font-weight: 600; cursor: pointer;
+    }
+    button:hover { background: var(--accent-hover); }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+    button.secondary { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+    button.secondary:hover { color: var(--text); }
+    .actions { display: flex; gap: 8px; margin-top: 16px; }
+    .log { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; white-space: pre-wrap; max-height: 280px; overflow: auto; background: #0c0e13; border: 1px solid var(--border); border-radius: 6px; padding: 12px; }
+    .log .ok { color: var(--ok); }
+    .log .err { color: var(--err); }
+    .log .dim { color: var(--muted); }
+    .hidden { display: none; }
+    .hint { font-size: 11px; color: var(--muted); margin-top: 4px; }
+    .pill { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 999px; background: #232838; color: var(--muted); margin-left: 8px; }
+    .pill.ok { background: rgba(67,196,120,0.15); color: var(--ok); }
+    a { color: var(--accent); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>HubSpot Mock Calls <span id="conn-pill" class="pill">disconnected</span></h1>
+    <p class="sub">Create mock calls with a recording URL in a HubSpot account. Browser-only, no backend.</p>
+
+    <div class="panel" id="auth-panel">
+      <label>HubSpot access token</label>
+      <input id="token" type="password" placeholder="pat-na1-..." autocomplete="off" />
+      <div class="hint">Settings → Integrations → Private Apps → Access Token. Stored only in your browser's localStorage.</div>
+
+      <label>CORS proxy</label>
+      <input id="proxy" type="text" value="https://corsproxy.io/?url=" />
+      <div class="hint">HubSpot's API blocks browser requests, so we route through a proxy. Default forwards your token through corsproxy.io — swap it for your own if you don't trust it.</div>
+
+      <div class="actions">
+        <button id="connect-btn">Connect</button>
+        <button id="forget-btn" class="secondary">Forget token</button>
+      </div>
+    </div>
+
+    <div class="panel hidden" id="form-panel">
+      <div class="row">
+        <div>
+          <label>How many calls?</label>
+          <input id="count" type="number" min="1" value="3" />
+        </div>
+        <div>
+          <label>Duration (seconds)</label>
+          <input id="duration" type="number" min="1" value="300" />
+        </div>
+      </div>
+
+      <label>Recording URL (https://…)</label>
+      <input id="rec-url" type="url" placeholder="https://example.com/recording.mp3" />
+
+      <label>Owner (optional)</label>
+      <select id="owner"><option value="">— No owner —</option></select>
+
+      <label>Disposition (optional)</label>
+      <select id="disposition"><option value="">— No disposition —</option></select>
+
+      <label>Activity type (optional)</label>
+      <select id="activity"><option value="">— No activity type —</option></select>
+
+      <div class="actions">
+        <button id="create-btn">Create mock calls</button>
+      </div>
+    </div>
+
+    <div class="panel hidden" id="log-panel">
+      <div class="log" id="log"></div>
+    </div>
+  </div>
+
+  <script>
+    const API = 'https://api.hubapi.com';
+    const $ = (id) => document.getElementById(id);
+    const log = (msg, cls = '') => {
+      const line = document.createElement('div');
+      if (cls) line.className = cls;
+      line.textContent = msg;
+      $('log').appendChild(line);
+      $('log').scrollTop = $('log').scrollHeight;
+      $('log-panel').classList.remove('hidden');
+    };
+
+    let token = localStorage.getItem('hs_token') || '';
+    let proxy = localStorage.getItem('hs_proxy') || 'https://corsproxy.io/?url=';
+    if (token) $('token').value = token;
+    $('proxy').value = proxy;
+
+    async function hs(path, opts = {}) {
+      const url = proxy + encodeURIComponent(API + path);
+      const res = await fetch(url, {
+        ...opts,
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          ...(opts.headers || {}),
+        },
+      });
+      const text = await res.text();
+      let body;
+      try { body = text ? JSON.parse(text) : null; } catch { body = text; }
+      if (!res.ok) {
+        const msg = body?.message || body?.error_description || res.statusText || `HTTP ${res.status}`;
+        throw new Error(msg);
+      }
+      return body;
+    }
+
+    async function fillSelect(select, items, valueKey, labelFn) {
+      while (select.options.length > 1) select.remove(1);
+      for (const it of items) {
+        const opt = document.createElement('option');
+        opt.value = it[valueKey];
+        opt.textContent = labelFn(it);
+        select.appendChild(opt);
+      }
+    }
+
+    async function loadPickers() {
+      // Owners
+      try {
+        const owners = [];
+        let after;
+        do {
+          const qs = new URLSearchParams({ limit: '100', ...(after ? { after } : {}) });
+          const res = await hs(`/crm/v3/owners?${qs}`);
+          for (const o of res.results) owners.push(o);
+          after = res.paging?.next?.after;
+        } while (after);
+        await fillSelect($('owner'), owners, 'id', (o) => {
+          const name = [o.firstName, o.lastName].filter(Boolean).join(' ') || '(no name)';
+          return `${name} <${o.email || ''}>`;
+        });
+        log(`Loaded ${owners.length} owner(s)`, 'dim');
+      } catch (e) { log(`Owners failed: ${e.message}`, 'err'); }
+
+      // Dispositions
+      try {
+        const res = await hs('/calling/v1/dispositions');
+        const items = (res || []).filter((d) => !d.deleted);
+        await fillSelect($('disposition'), items, 'id', (d) => d.label);
+        log(`Loaded ${items.length} disposition(s)`, 'dim');
+      } catch (e) { log(`Dispositions failed: ${e.message}`, 'err'); }
+
+      // Activity types
+      try {
+        const res = await hs('/crm/v3/properties/calls/hs_activity_type');
+        const items = (res.options || []).filter((o) => !o.hidden);
+        await fillSelect($('activity'), items, 'value', (o) => o.label);
+        log(`Loaded ${items.length} activity type(s)`, 'dim');
+      } catch (e) { log(`Activity types failed: ${e.message}`, 'err'); }
+    }
+
+    async function connect() {
+      token = $('token').value.trim();
+      proxy = $('proxy').value.trim();
+      if (!token) { alert('Paste a token first.'); return; }
+      if (!proxy) { alert('Proxy URL required.'); return; }
+
+      $('connect-btn').disabled = true;
+      $('connect-btn').textContent = 'Connecting…';
+      $('log').textContent = '';
+      try {
+        // Validate token + identify portal
+        const info = await hs('/integrations/v1/me');
+        log(`✓ Connected to portal ${info.portalId}`, 'ok');
+        $('conn-pill').textContent = `portal ${info.portalId}`;
+        $('conn-pill').classList.add('ok');
+        localStorage.setItem('hs_token', token);
+        localStorage.setItem('hs_proxy', proxy);
+        $('form-panel').classList.remove('hidden');
+        await loadPickers();
+      } catch (e) {
+        log(`✗ ${e.message}`, 'err');
+        $('conn-pill').textContent = 'disconnected';
+        $('conn-pill').classList.remove('ok');
+      } finally {
+        $('connect-btn').disabled = false;
+        $('connect-btn').textContent = 'Connect';
+      }
+    }
+
+    async function getNextMockCallNumber() {
+      try {
+        const res = await hs('/crm/v3/objects/calls/search', {
+          method: 'POST',
+          body: JSON.stringify({
+            filterGroups: [{ filters: [{ propertyName: 'hs_call_title', operator: 'CONTAINS_TOKEN', value: 'Mock' }] }],
+            properties: ['hs_call_title'],
+            sorts: [{ propertyName: 'hs_createdate', direction: 'DESCENDING' }],
+            limit: 100,
+          }),
+        });
+        let max = 0;
+        for (const c of res.results || []) {
+          const m = c.properties.hs_call_title?.match(/^Mock call (\d+)$/);
+          if (m) max = Math.max(max, parseInt(m[1], 10));
+        }
+        return max + 1;
+      } catch { return 1; }
+    }
+
+    async function createCalls() {
+      const count = parseInt($('count').value, 10);
+      const durSec = parseInt($('duration').value, 10);
+      const url = $('rec-url').value.trim();
+      const ownerId = $('owner').value;
+      const dispositionId = $('disposition').value;
+      const activityValue = $('activity').value;
+
+      if (!count || count < 1) { alert('Count must be ≥ 1'); return; }
+      if (!durSec || durSec < 1) { alert('Duration must be ≥ 1'); return; }
+      if (!url || !url.startsWith('https://')) { alert('Recording URL must start with https://'); return; }
+
+      $('create-btn').disabled = true;
+      $('create-btn').textContent = 'Creating…';
+      try {
+        const start = await getNextMockCallNumber();
+        log(`Creating ${count} call(s) starting at #${start}…`);
+        for (let i = 0; i < count; i++) {
+          const num = start + i;
+          const properties = {
+            hs_call_title: `Mock call ${num}`,
+            hs_call_status: 'COMPLETED',
+            hs_call_duration: String(durSec * 1000),
+            hs_call_direction: 'OUTBOUND',
+            hs_call_body: 'Mock call created by hubspot-mock-calls web tool.',
+            hs_timestamp: new Date().toISOString(),
+            hs_call_recording_url: url,
+          };
+          if (ownerId) properties.hubspot_owner_id = ownerId;
+          if (dispositionId) properties.hs_call_disposition = dispositionId;
+          if (activityValue) properties.hs_activity_type = activityValue;
+          try {
+            const res = await hs('/crm/v3/objects/calls', {
+              method: 'POST',
+              body: JSON.stringify({ properties }),
+            });
+            log(`  ✓ [${res.id}] Mock call ${num}`, 'ok');
+          } catch (e) {
+            log(`  ✗ Mock call ${num}: ${e.message}`, 'err');
+          }
+        }
+        log('Done. Talkmetry sync will pick these up within 15 minutes.', 'dim');
+      } finally {
+        $('create-btn').disabled = false;
+        $('create-btn').textContent = 'Create mock calls';
+      }
+    }
+
+    function forgetToken() {
+      localStorage.removeItem('hs_token');
+      token = '';
+      $('token').value = '';
+      $('conn-pill').textContent = 'disconnected';
+      $('conn-pill').classList.remove('ok');
+      $('form-panel').classList.add('hidden');
+      log('Token cleared from this browser.', 'dim');
+    }
+
+    $('connect-btn').addEventListener('click', connect);
+    $('create-btn').addEventListener('click', createCalls);
+    $('forget-btn').addEventListener('click', forgetToken);
+
+    // Auto-connect if token already stored
+    if (token) connect();
+  </script>
+</body>
+</html>
