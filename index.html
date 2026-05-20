@@ -60,7 +60,14 @@
     <div class="panel" id="auth-panel">
       <label>HubSpot service key</label>
       <input id="token" type="password" placeholder="pat-na1-..." autocomplete="off" />
-      <div class="hint">Settings → Integrations → Account service keys → Create / Show. (A Private App access token works too — same <code>Bearer</code> scheme.) Stored only in your browser's localStorage.</div>
+      <div class="hint">
+        Settings → Integrations → Account service keys → Create key. Grant these scopes:
+        <code>crm.objects.deals.read</code>, <code>crm.objects.custom.write</code>,
+        <code>crm.schemas.contacts.read</code>, <code>crm.objects.owners.read</code>,
+        <code>crm.objects.contacts.write</code>, <code>crm.objects.contacts.read</code>,
+        <code>crm.objects.companies.read</code>.
+        Stored only in your browser's localStorage.
+      </div>
 
       <label>CORS proxy</label>
       <input id="proxy" type="text" value="https://corsproxy.io/?url=" />
