@@ -46,7 +46,11 @@
     .log .err { color: var(--err); }
     .log .dim { color: var(--muted); }
     .hidden { display: none; }
-    .hint { font-size: 11px; color: var(--muted); margin-top: 4px; }
+    .hint { font-size: 11px; color: var(--muted); margin-top: 6px; line-height: 1.55; }
+    .hint code { font-size: 11px; padding: 1px 5px; border-radius: 4px; background: #1d212b; color: #c8cde0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .scopes { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 4px; }
+    .scopes code { font-size: 11px; padding: 3px 8px; border-radius: 999px; background: #1d212b; color: #c8cde0; border: 1px solid var(--border); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .hint-strong { color: var(--text); }
     .pill { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 999px; background: #232838; color: var(--muted); margin-left: 8px; }
     .pill.ok { background: rgba(67,196,120,0.15); color: var(--ok); }
     a { color: var(--accent); }
@@ -61,13 +65,19 @@
       <label>HubSpot service key</label>
       <input id="token" type="password" placeholder="pat-na1-..." autocomplete="off" />
       <div class="hint">
-        Settings → Integrations → Account service keys → Create key. Grant these scopes:
-        <code>crm.objects.deals.read</code>, <code>crm.objects.custom.write</code>,
-        <code>crm.schemas.contacts.read</code>, <code>crm.objects.owners.read</code>,
-        <code>crm.objects.contacts.write</code>, <code>crm.objects.contacts.read</code>,
-        <code>crm.objects.companies.read</code>.
-        Stored only in your browser's localStorage.
+        <span class="hint-strong">Settings → Integrations → Account service keys → Create key.</span>
+        Grant these scopes:
       </div>
+      <div class="scopes">
+        <code>crm.objects.deals.read</code>
+        <code>crm.objects.custom.write</code>
+        <code>crm.schemas.contacts.read</code>
+        <code>crm.objects.owners.read</code>
+        <code>crm.objects.contacts.write</code>
+        <code>crm.objects.contacts.read</code>
+        <code>crm.objects.companies.read</code>
+      </div>
+      <div class="hint">Stored only in your browser's localStorage.</div>
 
       <label>CORS proxy</label>
       <input id="proxy" type="text" value="https://corsproxy.io/?url=" />
