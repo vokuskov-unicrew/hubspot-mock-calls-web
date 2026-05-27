@@ -80,8 +80,8 @@
       <div class="hint">Stored only in your browser's localStorage.</div>
 
       <label>CORS proxy</label>
-      <input id="proxy" type="text" value="https://corsproxy.io/?url=" />
-      <div class="hint">HubSpot's API blocks browser requests, so we route through a proxy. Default forwards your token through corsproxy.io — swap it for your own if you don't trust it.</div>
+      <input id="proxy" type="text" value="https://thingproxy.freeboard.io/fetch/" />
+      <div class="hint">HubSpot's API blocks browser requests, so we route through a proxy. The default forwards your token (with full CRM read/write scope) through a public third-party proxy. For anything beyond a throwaway test portal, run your own proxy and paste its URL here. Query-style (<code>…/?url=</code>) and path-style (<code>…/fetch/</code>) proxies both work.</div>
 
       <div class="actions">
         <button id="connect-btn">Connect</button>
@@ -136,12 +136,15 @@
     };
 
     let token = localStorage.getItem('hs_token') || '';
-    let proxy = localStorage.getItem('hs_proxy') || 'https://corsproxy.io/?url=';
+    let proxy = localStorage.getItem('hs_proxy') || 'https://thingproxy.freeboard.io/fetch/';
     if (token) $('token').value = token;
     $('proxy').value = proxy;
 
     async function hs(path, opts = {}) {
-      const url = proxy + encodeURIComponent(API + path);
+      const target = API + path;
+      // Query-style proxies (".../?url=") expect a URL-encoded target;
+      // path-style proxies (".../fetch/") expect the raw URL appended.
+      const url = proxy.endsWith('=') ? proxy + encodeURIComponent(target) : proxy + target;
       const res = await fetch(url, {
         ...opts,
         headers: {
