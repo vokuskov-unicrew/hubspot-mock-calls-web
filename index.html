@@ -80,7 +80,7 @@
       <div class="hint">Stored only in your browser's localStorage.</div>
 
       <label>CORS proxy</label>
-      <input id="proxy" type="text" value="https://thingproxy.freeboard.io/fetch/" />
+      <input id="proxy" type="text" value="https://proxy.cors.sh/" />
       <div class="hint">HubSpot's API blocks browser requests, so we route through a proxy. The default forwards your token (with full CRM read/write scope) through a public third-party proxy. For anything beyond a throwaway test portal, run your own proxy and paste its URL here. Query-style (<code>…/?url=</code>) and path-style (<code>…/fetch/</code>) proxies both work.</div>
 
       <div class="actions">
@@ -136,7 +136,13 @@
     };
 
     let token = localStorage.getItem('hs_token') || '';
-    let proxy = localStorage.getItem('hs_proxy') || 'https://thingproxy.freeboard.io/fetch/';
+    // Drop proxies we've since confirmed dead so the current default takes over.
+    const DEAD_PROXIES = ['corsproxy.io', 'thingproxy.freeboard.io'];
+    const savedProxy = localStorage.getItem('hs_proxy');
+    if (savedProxy && DEAD_PROXIES.some((d) => savedProxy.includes(d))) {
+      localStorage.removeItem('hs_proxy');
+    }
+    let proxy = localStorage.getItem('hs_proxy') || 'https://proxy.cors.sh/';
     if (token) $('token').value = token;
     $('proxy').value = proxy;
 
