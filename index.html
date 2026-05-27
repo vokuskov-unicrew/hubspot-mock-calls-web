@@ -140,11 +140,21 @@
     };
 
     let token = localStorage.getItem('hs_token') || '';
-    // Drop proxies we've since confirmed dead so the current default takes over.
-    const DEAD_PROXIES = ['corsproxy.io', 'thingproxy.freeboard.io'];
+    // Drop proxies we've since confirmed dead. Compare by exact hostname, not
+    // substring, so we don't accidentally match a lookalike host.
+    const DEAD_PROXY_HOSTS = ['corsproxy.io', 'thingproxy.freeboard.io'];
     const savedProxy = localStorage.getItem('hs_proxy');
-    if (savedProxy && DEAD_PROXIES.some((d) => savedProxy.includes(d))) {
-      localStorage.removeItem('hs_proxy');
+    let clearedDeadProxy = false;
+    if (savedProxy) {
+      let host = '';
+      try { host = new URL(savedProxy).hostname; } catch {}
+      if (DEAD_PROXY_HOSTS.includes(host)) {
+        // Clear the dead proxy. We deliberately do NOT substitute a new
+        // credential-forwarding host silently — the user must re-Connect so
+        // the token is only ever sent after an explicit action.
+        localStorage.removeItem('hs_proxy');
+        clearedDeadProxy = true;
+      }
     }
     let proxy = localStorage.getItem('hs_proxy') || 'https://proxy.cors.sh/';
     let proxyKey = localStorage.getItem('hs_proxy_key') || '';
@@ -335,8 +345,14 @@
     $('create-btn').addEventListener('click', createCalls);
     $('forget-btn').addEventListener('click', forgetToken);
 
-    // Auto-connect if token already stored
-    if (token) connect();
+    // Auto-connect only if the user previously connected through a proxy they
+    // explicitly saved. We never auto-send the token to the fallback default
+    // or to a freshly substituted host — that requires an explicit Connect.
+    if (clearedDeadProxy) {
+      log('Saved proxy was retired. Review the proxy below, then click Connect to re-send your token.', 'dim');
+    } else if (token && localStorage.getItem('hs_proxy')) {
+      connect();
+    }
   </script>
 </body>
 </html>
