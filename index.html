@@ -83,6 +83,10 @@
       <input id="proxy" type="text" value="https://proxy.cors.sh/" />
       <div class="hint">HubSpot's API blocks browser requests, so we route through a proxy. The default forwards your token (with full CRM read/write scope) through a public third-party proxy. For anything beyond a throwaway test portal, run your own proxy and paste its URL here. Query-style (<code>…/?url=</code>) and path-style (<code>…/fetch/</code>) proxies both work.</div>
 
+      <label>Proxy API key (optional)</label>
+      <input id="proxy-key" type="password" placeholder="cors.sh temp_… key" autocomplete="off" />
+      <div class="hint">Public proxies rate-limit hard. cors.sh gives a free key at <a href="https://cors.sh/" target="_blank" rel="noopener">cors.sh</a>; paste it here and it's sent as <code>x-cors-api-key</code>. Leave blank for other proxies.</div>
+
       <div class="actions">
         <button id="connect-btn">Connect</button>
         <button id="forget-btn" class="secondary">Forget token</button>
@@ -143,8 +147,10 @@
       localStorage.removeItem('hs_proxy');
     }
     let proxy = localStorage.getItem('hs_proxy') || 'https://proxy.cors.sh/';
+    let proxyKey = localStorage.getItem('hs_proxy_key') || '';
     if (token) $('token').value = token;
     $('proxy').value = proxy;
+    if (proxyKey) $('proxy-key').value = proxyKey;
 
     async function hs(path, opts = {}) {
       const target = API + path;
@@ -156,6 +162,7 @@
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
+          ...(proxyKey ? { 'x-cors-api-key': proxyKey } : {}),
           ...(opts.headers || {}),
         },
       });
@@ -217,6 +224,7 @@
     async function connect() {
       token = $('token').value.trim();
       proxy = $('proxy').value.trim();
+      proxyKey = $('proxy-key').value.trim();
       if (!token) { alert('Paste a token first.'); return; }
       if (!proxy) { alert('Proxy URL required.'); return; }
 
@@ -231,6 +239,8 @@
         $('conn-pill').classList.add('ok');
         localStorage.setItem('hs_token', token);
         localStorage.setItem('hs_proxy', proxy);
+        if (proxyKey) localStorage.setItem('hs_proxy_key', proxyKey);
+        else localStorage.removeItem('hs_proxy_key');
         $('form-panel').classList.remove('hidden');
         await loadPickers();
       } catch (e) {
